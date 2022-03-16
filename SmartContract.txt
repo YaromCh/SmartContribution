@@ -1,0 +1,101 @@
+// SPDX-License-Identifier: GPL-3.0
+
+pragma solidity >=0.7.0 <0.9.0;
+
+contract SmartContribution {
+    address ownerAddress;
+    string[] title;
+    string[] detail;
+    uint256[] etherRequired;
+    uint[] percentageConsent;
+    address[] addressToPay;
+    bool[] notDoneYet;
+
+    constructor () payable{
+        ownerAddress=msg.sender;
+    }
+    
+    modifier onlyOwner {
+        require(msg.sender == ownerAddress);
+         _;
+   }
+
+    function getBalance() public view returns(uint256) {
+        return (address(this).balance);
+    }
+
+    function getContributionsStatus() public view returns(uint256,string[] memory, string[] memory, uint256[] memory, uint[] memory, address[] memory, bool[] memory) {
+        return (address(this).balance,title,detail,etherRequired,percentageConsent,addressToPay,notDoneYet);
+    }
+
+    function addElement(string memory new_title, string memory new_detail,uint256 new_etherRequired, address new_addressToPay) external onlyOwner{
+        title.push(new_title);
+        detail.push(new_detail);
+        etherRequired.push(new_etherRequired);
+        percentageConsent.push(0);
+        addressToPay.push(new_addressToPay);
+        notDoneYet.push(true);
+    }
+
+    function doContribution(uint index) external payable{
+            percentageConsent[index]+=(msg.value*100000)/(etherRequired[index]);
+            // Check out the products that the the Most percent, that we can contribute to and have  up then 85% Agreement.
+            uint maxLimit=0;
+            for (uint i=0; i<percentageConsent.length; i++){
+                if (maxLimit < percentageConsent[i])
+                    maxLimit = percentageConsent[i];
+            }
+            maxLimit++;
+            bool toContinue=true;
+            uint maxCurrent=0;   
+            do {
+                 for (uint i=0; i<percentageConsent.length; i++){
+                    if ((maxCurrent < maxLimit) && (85000 <= percentageConsent[i]) && (maxCurrent < percentageConsent[i]) && (notDoneYet[i]))
+                        maxCurrent = percentageConsent[i];
+                }
+                if (maxLimit == maxCurrent)
+                    toContinue=false;
+                else{
+                    for (uint i=0; i<percentageConsent.length; i++){
+                        if(maxCurrent == percentageConsent[i])
+                                if (etherRequired[i] <= address(this).balance){
+                                    (payable(addressToPay[i])).transfer(etherRequired[i]);
+                                    notDoneYet[i]=false;
+                                }
+                    }
+                    maxLimit = maxCurrent;
+                }
+            }
+            while (toContinue);
+    }
+
+    function closeProject() public onlyOwner{
+        uint maxLimit=0;
+            for (uint i=0; i<percentageConsent.length; i++){
+                if (maxLimit < percentageConsent[i])
+                    maxLimit = percentageConsent[i];
+            }
+            maxLimit++;
+            bool toContinue=true;
+            uint maxCurrent=0;   
+            do {
+                 for (uint i=0; i<percentageConsent.length; i++){
+                    if ((maxCurrent < maxLimit) && (maxCurrent < percentageConsent[i]) && (notDoneYet[i]))
+                        maxCurrent = percentageConsent[i];
+                }
+                if (maxLimit == maxCurrent)
+                    toContinue=false;
+                else{
+                    for (uint i=0; i<percentageConsent.length; i++){
+                        if(maxCurrent == percentageConsent[i]){
+                                    (payable(addressToPay[i])).transfer(etherRequired[i]);
+                                    notDoneYet[i]=false;
+                                }
+                    }
+                    maxLimit = maxCurrent;
+                }
+            }
+            while (toContinue);
+        selfdestruct(payable(ownerAddress));
+    }
+}
